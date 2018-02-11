@@ -440,10 +440,16 @@ pgconfigure()
 	case $OSTYPE in
 	darwin*)
 		# The libedit library (aliased as libreadline on MacOS) is not very
-		# advanced. If we have installed libreadline using MacPorts, let's use
-		# that for the utilities like psql.
-		local pgdLDFLAGS="${LDFLAGS} -L/opt/local/lib/"
-		local pgdCPPFLAGS="${CPPFLAGS} -I/opt/local/include"
+		# advanced. Hence, use Homebrew's version of libreadline.
+		#
+		# Also, use OpenSSL from Homebrew, since macOS does not ship with
+		# requisite header files.
+		#
+		# Use these commands to install these dependencies:
+		# $ brew install openssl readline
+		#
+		local pgdLDFLAGS="${LDFLAGS} -L/usr/local/opt/readline/lib -L/usr/local/opt/openssl/lib"
+		local pgdCPPFLAGS="${CPPFLAGS} -I/usr/local/opt/readline/include -I/usr/local/opt/openssl/include"
 		;;
 	*)
 		;;

@@ -22,6 +22,11 @@ Debian and siblings
 apt-get install screen git gitk gcc gdb make flex bison libreadline-dev libz-dev libssl-dev
 ```
 
+macOS
+```shell
+brew install readline openssl
+```
+
 .) Install packages required to build EnterpriseDB
 
 CentOS and siblings:
