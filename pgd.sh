@@ -543,7 +543,7 @@ pgdUnsetGitDir()
 # Set the directory which contains Postgres source code
 #
 # Specifically, this directory should contain a .git/ directory and Postgres
-# source code cheked out from that directory.
+# source code checked-out from that directory.
 #
 # If provided with a parameter, set the variable to that directory else set the
 # variable to `pwd`
@@ -552,7 +552,7 @@ pgdSetGitDir()
 	if [ "x$1" != "x" ] ; then
 		pgdGIT_DIR=`cd "$1"; pwd`/.git/
 	else
-		pgdGIT_DIR=`pwd`/.git/
+		pgdGIT_DIR=`pwd`/.git
 	fi
 
 	export pgdGIT_DIR
