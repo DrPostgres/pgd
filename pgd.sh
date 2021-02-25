@@ -562,25 +562,6 @@ pgdSetGitDir()
 # but not available to non-interactive (n-i) shells since n-i shells do not
 # process .bashrc or .bash_profile files.
 #
-# But n-i shells 'source' the file named in $BASH_ENV. So for n-i shells we
-# setup $BASH_ENV. Do note that we do this only if $BASH_ENV is not already set,
-# because otherwise we may be stomping on someone else's feet.
-if [ "x$BASH_SOURCE" != "x" ] ; then
-	if [ "x$BASH_ENV" = "x" ] ; then
-
-		# Resolve file name to absolute path
-		pgdtmpf=$(basename $BASH_SOURCE)
-		pgdtmpd=$(dirname $BASH_SOURCE)
-		pgdtmpp=$(cd $pgdtmpd; pwd)
-
-		export BASH_ENV=$pgdtmpp/$pgdtmpf
-
-		unset pgdtmpf pgdtmpd pgdtmpp
-	#else
-		#echo Not setting \$BASH_ENV since it is already set \(maybe by someone else\) 2>&1
-	fi
-fi
-
 # Emit a comma separated list of pids of all processes in this process' tree
 getPIDTree()
 {
