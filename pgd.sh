@@ -246,6 +246,7 @@ pgdSetSTARTShell()
 pgdSetPGFlavor()
 {
 	local src_dir
+	local autoconf_input
 
 	if [ "x$pgdGIT_DIR" != "x" ] ; then
 		src_dir=$pgdGIT_DIR/../
@@ -253,14 +254,17 @@ pgdSetPGFlavor()
 		src_dir=`pwd`
 	fi
 
-	if [ ! -f $src_dir/configure.in ] ; then
+	# Newer versions of Postgres uses file named configure.ac
+	autoconf_input=$( [[ -f "$src_dir/configure.in" ]] && echo "$src_dir/configure.in" || echo "$src_dir/configure.ac" )
+
+	if [[ -z "$autoconf_input" ]] ; then
 		echo "WARNING: Are you sure that $src_dir is a Postgres source directory?" 1>&2
 		return 1
 	fi
 
 	# If the configure.in file contains the word EnterpriseDB, then we're
 	# working with EnterpriseDB sources.
-	grep -m 1 EnterpriseDB $src_dir/configure.in 2>&1 > /dev/null
+	grep -m 1 EnterpriseDB "$autoconf_input" 2>&1 > /dev/null
 	if [ $? -eq 0 ] ; then
 		pgdFLAVOR="edb"
 		return 0
@@ -268,7 +272,7 @@ pgdSetPGFlavor()
 
 	# If the configure.in file contains the word PostgreSQL, then we're working
 	# with Postgres sources.
-	grep -m 1 PostgreSQL $src_dir/configure.in 2>&1 > /dev/null
+	grep -m 1 PostgreSQL "$autoconf_input" 2>&1 > /dev/null
 	if [ $? -eq 0 ] ; then
 		pgdFLAVOR="postgres"
 		return 0
