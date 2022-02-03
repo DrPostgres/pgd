@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# TODO: While in pgconfigure and pgbuild, lock the Git directory so that the
+# branch-changes and other Git operations are prohibited for that duration.
+# Populate the .git/index.lock file with PID and other info of our process.
+# Honor the case where .git is a file and not a direcory.
+
 # This file is typically supposed to be invoked using bash builtin 'source',
 
 # It can also be invoked as
@@ -29,7 +34,7 @@ pgdSetVariables()
 	if [ "x$pgdBUILD_ROOT_OVERRIDE" != "x" ] ; then
 		pgdBUILD_ROOT=$pgdBUILD_ROOT_OVERRIDE
 	else # else use the default.
-		pgdBUILD_ROOT=${HOME}/dev/pgdbuilds
+        pgdBUILD_ROOT=$(pwd)_builds
 	fi
 
 	pgdSetBuildDirectory
@@ -49,15 +54,14 @@ pgdSetVariables()
 	pgdSaved_PATH=$PATH
 	export PATH=$pgdPREFIX/bin:/mingw/lib:$PATH
 
-	vxsSaved_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+	pgdSaved_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
 	export LD_LIBRARY_PATH=$pgdPREFIX/lib:$LD_LIBRARY_PATH
 
-	# Tell ccache to use hardlinks instead of copying files.
-	#
-	# NOTE: We don't need to set CCACHE_BASEDIR because of the way we use the
-	# source files from the same directory.
-	pgdSaved_CCACHE_HARDLINK=$CCACHE_HARDLINK
-	export CCACHE_HARDLINK=1
+    pgdSaved_CCACHE_BASEDIR="$CCACHE_BASEDIR"
+    export CCACHE_BASEDIR=$(pwd)
+
+    pgdSaved_CCACHE_NOHASHDIR="$CCACHED_NOHASHDIR"
+    export CCACHE_NOHASHDIR=true
 
 	# This will do its job in VPATH builds, and nothing in non-VPATH builds
 	mkdir -p $B
@@ -82,9 +86,19 @@ pgdInvalidateVariables()
 	unset pgdSaved_PATH
 
 	if [ "x$pgdSaved_CCACHE_HARDLINK" != "x" ] ; then
-		export CCACHE_HARDLINK=$pgdSaved_CCACHE_HARDLINK
+		:#export CCACHE_HARDLINK=$pgdSaved_CCACHE_HARDLINK
 	fi
 	unset pgdSaved_CCACHE_HARDLINK
+
+	if [ "x$pgdSaved_CCACHE_BASEDIR" != "x" ] ; then
+		export CCACHE_BASEDIR=$pgdSaved_CCACHE_BASEDIR
+	fi
+	unset pgdSaved_CCACHE_BASEDIR
+
+	if [ "x$pgdSaved_CCACHE_NOHASHDIR" != "x" ] ; then
+		export CCACHE_NOHASHDIR=$pgdSaved_CCACHE_NOHASHDIR
+	fi
+	unset pgdSaved_CCACHE_NOHASHDIR
 
 	if [ "x$pgdSaved_LD_LIBRARY_PATH" != "x" ] ; then
 		export LD_LIBRARY_PATH=$pgdSaved_LD_LIBRARY_PATH
