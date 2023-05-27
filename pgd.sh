@@ -44,6 +44,7 @@ pgdSetVariables()
 	pgdSetPGDATA
 
 	pgdSetPGFlavor
+	pgdSetDefaultPort
 	pgdSetPSQL
 	pgdSetPGSUNAME
 
@@ -77,6 +78,7 @@ pgdInvalidateVariables()
 	unset B
 	unset pgdPREFIX
 	unset pgdFLAVOR
+	unset pgdDefaultPort
 	unset pgdPSQL
 	unset pgdPGSUNAME
 
@@ -295,6 +297,17 @@ pgdSetPGFlavor()
 	return 1
 }
 
+# Set the default port number for the flavor of Postgres we're developing. Must
+# be called _after_ pgdSetPGFlavor() has been called.
+pgdSetDefaultPort()
+{
+	if [[ "$pgdFLAVOR" == "postgres" ]]; then
+		pgdDefaultPort=5432
+	elif [[ "$pgdFLAVOR" == "edb" ]]; then
+		pgdDefaultPort=5444
+	fi
+}
+
 pgdSetPSQL()
 {
 	if [ "x$pgdFLAVOR" = "x" ] ; then
@@ -331,6 +344,15 @@ pgsql()
 {
 	pgdDetectBranchChange || return $?
 
+	local port=$(pgdGetServerPortNumber)
+	local port_option
+
+	if [[ "$port" == "" ]]; then
+		port_option=""
+	else
+		port_option="-p $port"
+	fi
+
 	# This check is not part of pgdDetectBranchChange() because a change in
 	# branch does not affect this variable
 	if [ "x$pgdSTART" = "x" ] ; then
@@ -340,7 +362,7 @@ pgsql()
 	# By default connect as superuser, to the default database. This will be
 	# overridden if the user calls this function as
 	# `pgsql -U someotherUser -d someotherDB`
-	$pgdSTART$pgdPREFIX/bin/$pgdPSQL -U $pgdPGSUNAME -d $pgdDBNAME "$@"
+	$pgdSTART$pgdPREFIX/bin/$pgdPSQL $port_option -U $pgdPGSUNAME -d $pgdDBNAME "$@"
 
 	local ret_code=$?
 
@@ -373,8 +395,17 @@ pgstart()
 	local PGUSER=$pgdPGSUNAME
 	export PGUSER
 
+	local port=$(pgdChooseServerPortNumber)
+	local port_option
+
+	if [[ "$port" == "" ]]; then
+		port_option=""
+	else
+		port_option="-p $port"
+	fi
+
 	# use pgstatus() to check if the server is already running
-	pgstatus || $pgdPREFIX/bin/pg_ctl -D $PGDATA -l $PGDATA/server.log -w start "$@"
+	pgstatus || $pgdPREFIX/bin/pg_ctl -D $PGDATA -l $PGDATA/server.log -w start -o"$port_option" "$@"
 	}
 
 	# Record pg_ctl's return code, so that it can be returned as return value
@@ -642,6 +673,124 @@ pgshowprocesses()
 	# versions use the postgres binary. So look for both postmaster and postgres
 	# in the process status.
 	ps faux | grep -vw grep | grep -wE 'postmaster|postgres'
+}
+
+pgdChooseServerPortNumber()
+{
+	# This function is suitable only for Unix (e.g. Darwin), and not for Linux.
+	# On all other OS, we simply return the default port number.
+	# TODO: Implement support for common Linux distributions.
+
+	local port
+
+	case $OSTYPE in
+	darwin*)
+
+		# Get a list of ports already in use.
+		#
+		# The below method tries to avoid only the ports that are already being
+		# listened on. But there may be other ports that are in use because they
+		# are used by inbound connections. See an example below. In this case,
+		# trying to use ports 65517 (or 62310) for Postgres will lead to the OS
+		# rejecting Postgres' attempt to open port this port on IPv4. However, If
+		# the requested port is available on IPv6, Postgres will start up and serve
+		# IPv6 traffic (only); in this case you'll see a WARNING in Postgres server
+		# logs, complaining about unable to open port on 127.0.0.1.
+		#
+		# TODO: Parse and exclude ports of this kind, as well.
+		#
+		# some-process    93623      502  126u  IPv4 0x8123bac7737ef29      0t0  TCP 127.0.0.1:65517->127.0.0.1:62310 (ESTABLISHED)
+		#
+		# On Darwin, a typical output of `lsof -lnPi | grep -E 'LISTEN\)$'` is as
+		# follows:
+		#
+		#	 rapportd	549	  502	4u  IPv4 0x8123bac18b43909	  0t0  TCP *:58255 (LISTEN)
+		#	 rapportd	549	  502	5u  IPv6 0x8123bac35e203d9	  0t0  TCP *:58255 (LISTEN)
+		#	 postgres  35810	  502	7u  IPv6 0x8123bac144bf179	  0t0  TCP [::1]:5433 (LISTEN)
+		#	 postgres  35810	  502	8u  IPv4 0x8123bacf22062e9	  0t0  TCP 127.0.0.1:5433 (LISTEN)
+		#	 Google	93623	  502   54u  IPv6 0x8123bad100d9eb9	  0t0  TCP [::1]:7679 (LISTEN)
+		#	 Google	93623	  502  124u  IPv4 0x8123bac77382089	  0t0  TCP 127.0.0.1:65517 (LISTEN)
+		#	 Google	93623	  502  206u  IPv4 0x8123bad1287a6a9	  0t0  TCP 127.0.0.1:65496 (LISTEN)
+		#
+		# So the following command is used to parse and capture all the port
+		# numbers from such an output.
+		#
+		# Execute `lsof -lnPi` and grep only those lines that _end_ with 'LISTEN)'
+		# Reverse each line's contents to ensure the first : (colon) character now
+		# _follows_ the port number. Use colon and space delimiters to strip away
+		# everything else. Reverse once more to revert the previous revrse.
+		# Finally, remove any duplicates by using sort and uniq. The sort helps
+		# because the comm command, used later here, requires it.
+		#
+		# Note that the value of the active_ports is a multi-line string.
+		local active_ports=$(lsof -lnPi | grep -E 'LISTEN\)$' | rev | cut -d: -f 1 | rev | cut -d' ' -f 1 | sort | uniq)
+
+		# If the default port is not in use, it makes our life much easier.
+		echo "$active_ports" | grep -q $pgdDefaultPort
+		if [[ $? -eq 1 ]]; then
+			port=$pgdDefaultPort
+		else
+			# Default port is not available, so we need to choose one that's not in use
+			# by anything else.
+			port=$(comm -23 <(seq 5432 65535 | sort) <(echo "$active_ports") | shuf | head -1)
+		fi
+		;;
+	*)
+		port=$pgdDefaultPort
+		;;
+	esac
+
+	echo $port
+}
+
+# Get the port number from the running server
+pgdGetServerPortNumber()
+{
+	local port
+
+	# Extract and return port number, iff server is running
+	pgstatus >/dev/null								 \
+	&& port=$(head -4 $PGDATA/postmaster.pid | tail -1) \
+	&& echo $port
+}
+
+# Set and export environment variable PGPORT
+# This is useful for utilities that use this variable (e.g. pg_dump)
+#
+# TODO: We desperately need to develop a facility that lets us prance around in
+# various source directories (that may in turn have many branches that we can
+# switch between at whim) and this facility should keep track of all the
+# variables (exported or otherwise) and change them appropriately on every
+# directory or branch switch.
+#
+# Something akin to the following set of functions:
+# pgdSetSourceDir
+#   Pushes the current variable values on a stack, and adopts values for the
+#   new (directory,branch) pair. If the pair already exists in the stack, then
+#   use values from that stack entry, and put that entry at the top of the
+#   stack.
+#   This function should take one parameter, the directory path. It should set
+#   all the relevant parameters even if CWD is not under that directory. This
+#   is helpful for extension development.
+#
+# pgdResetDirecctoryStack
+#   Reset environment to the initial state, as if we have never entered a
+#   Postgres source directory.
+#
+# pgdGeneratePortNumber
+#   echo "$(echo "obase=10; ibase=16; $(echo dir_branch_pair | md5sum | cut -d' ' -f 1 | tr '[:lower:]' '[:upper:]')" | bc) % (65535 - 1024) + 1024" | bc
+#
+pgdExportPGPORT()
+{
+	local port=$(pgdGetServerPortNumber)
+
+	if [[ "$port" == "" ]]; then
+		return 1
+	else
+		export PGPORT=$port \
+		&& echo "PGPORT(=$port) exported"  \
+		&& return 0
+	fi
 }
 
 createBuildRootReadme()
