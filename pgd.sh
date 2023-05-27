@@ -477,7 +477,7 @@ pgconfigure()
 	# was not specified, and uses the default mechanism to find a compiler.
 	( mkdir -p $B	\
 		&& cd $B	\
-		&& $src_dir/configure --prefix=$pgdPREFIX CC="${ccacher}" --enable-debug --enable-cassert CFLAGS=-O0 CPPFLAGS="${pgdCPPFLAGS}" LDFLAGS="${pgdLDFLAGS}" --enable-depend --enable-thread-safety --with-openssl "$@" )
+		&& $src_dir/configure --config-cache --prefix=$pgdPREFIX CC="${ccacher}" --enable-debug --enable-cassert CFLAGS=-O0 CPPFLAGS="${pgdCPPFLAGS}" LDFLAGS="${pgdLDFLAGS}" --enable-depend --enable-thread-safety --with-openssl "$@" )
 
 	return $?
 }
