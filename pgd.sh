@@ -495,7 +495,8 @@ pgmake()
 	fi
 
 	# Append "$@" to the command so that we can do `pgmake -C src/backend/`, or
-	# anything similar. `make` allows multiple -C options, and does the right thing
+	# anything similar. `make` allows multiple -C options, and the options
+	# specified later take precedence.
 	$MAKER -C "$B" --no-print-directory "$@"
 
 	return $?
@@ -629,7 +630,7 @@ pgserverPIDList()
 	# That is, show only stderr stream of the pgstatus().
 	pgstatus >/dev/null || return $?
 
-	echo $(getPIDTree $(head -1 $B/db/data/postmaster.pid))
+	echo $(getPIDTree $(head -1 "$PGDATA"/postmaster.pid))
 }
 
 # Show a list (actually, forest) of all processes related to postgres.
