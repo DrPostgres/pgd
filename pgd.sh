@@ -723,13 +723,28 @@ pgdBuildStableBranches()
 }
 COMMENT
 
-# Append branch detection code to $PROMPT_COMMAND so that we can detect Git
-# branch change ASAP.
-#
-PROMPT_COMMAND="${PROMPT_COMMAND:-:;}"	# If empty, substitute a no-op
-# If it doesn't end with a semi-colon, append one.
-PROMPT_COMMAND="${PROMPT_COMMAND}$( [[ $(echo -n ${PROMPT_COMMAND} | tail -c 1) == ';' ]] && echo '' || echo ';' )"
-PROMPT_COMMAND=${PROMPT_COMMAND}'pgdDetectBranchChange >/dev/null 2>&1'
+function pgdHookBranchDetectionIntoShell()
+{
+	echo "$PROMPT_COMMAND" | grep -w pgdDetectBranchChange
+
+	if [[ $? -eq 0 ]]; then
+		echo '$PROMPT_COMMAND seems to already contain branch detection code.'
+		echo "\$PROMPT_COMMAND=$PROMPT_COMMAND"
+		echo 'Skipping.'
+		return 0;
+	fi
+
+	# Append branch detection code to $PROMPT_COMMAND so that we can detect Git
+	# branch change ASAP.
+	#
+	PROMPT_COMMAND="${PROMPT_COMMAND:-:;}"	# If empty, substitute a no-op
+	# If it doesn't end with a semi-colon, append one.
+	PROMPT_COMMAND="${PROMPT_COMMAND}$( [[ $(echo -n ${PROMPT_COMMAND} | tail -c 1) == ';' ]] && echo '' || echo ';' )"
+	PROMPT_COMMAND=${PROMPT_COMMAND}'pgdDetectBranchChange >/dev/null 2>&1;'
+}
+
+# Hook our brach-change-detection code into Bash prompt
+pgdHookBranchDetectionIntoShell
 
 # If the script was invoked with some parameters, then assume $1 to be a
 # function's name (possibly defined in this file), and pass the rest of the
