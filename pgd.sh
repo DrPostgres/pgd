@@ -494,11 +494,14 @@ pgconfigure()
 		# Also, use OpenSSL from Homebrew, since macOS does not ship with
 		# requisite header files.
 		#
-		# Use these commands to install these dependencies:
+		# Use the following command to install these dependencies:
 		# $ brew install openssl readline
 		#
-		local pgdLDFLAGS="${LDFLAGS} -L/usr/local/opt/readline/lib -L/usr/local/opt/openssl/lib"
-		local pgdCPPFLAGS="${CPPFLAGS} -I/usr/local/opt/readline/include -I/usr/local/opt/openssl/include"
+		if which brew ; then
+			local homebrew_root="$(which brew >/dev/null && brew --prefix)"
+			local pgdLDFLAGS="${LDFLAGS} -L"$homebrew_root"/opt/readline/lib -L"$homebrew_root"/opt/openssl/lib"
+			local pgdCPPFLAGS="${CPPFLAGS} -I"$homebrew_root"/opt/readline/include -I"$homebrew_root"/opt/openssl/include"
+        fi
 		;;
 	*)
 		;;
