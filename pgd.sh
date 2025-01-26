@@ -344,6 +344,7 @@ pgsql()
 {
 	pgdDetectBranchChange || return $?
 
+    # TODO: abort/error out of function if this function call fails
 	local port=$(pgdGetServerPortNumber)
 	local port_option
 
@@ -379,8 +380,12 @@ pginitdb()
 {
 	pgdDetectBranchChange || return $?
 
-	$pgdPREFIX/bin/initdb -D $PGDATA -U $pgdPGSUNAME
+	$pgdPREFIX/bin/initdb -D $PGDATA -U $pgdPGSUNAME "$@"
 }
+
+# TODO: Export all client-side (and probably server-side) variables, so that
+# the tools (e.g. pgbench) can use them as the defaults. Since PGUSER is not
+# exported, pgbench needs to be told which user to connect as.
 
 pgstart()
 {
@@ -506,6 +511,9 @@ pgconfigure()
 
 	# If $ccacher variable is not set, then ./configure behaves as if CC variable
 	# was not specified, and uses the default mechanism to find a compiler.
+    #
+    # TODO: Remove --enable-thread-safety option. The commit 68a4b58eca0 has
+    # removed it from Postgres sources.
 	( mkdir -p $B	\
 		&& cd $B	\
 		&& $src_dir/configure --config-cache --prefix=$pgdPREFIX CC="${ccacher}" --enable-debug --enable-cassert CFLAGS=-O0 CPPFLAGS="${pgdCPPFLAGS}" LDFLAGS="${pgdLDFLAGS}" --enable-depend --enable-thread-safety --with-openssl "$@" )
@@ -600,7 +608,7 @@ pgdUnsetGitDir()
 pgdSetGitDir()
 {
 	if [ "x$1" != "x" ] ; then
-		pgdGIT_DIR=`cd "$1"; pwd`/.git/
+		pgdGIT_DIR=`cd "$1"; pwd`/.git
 	else
 		pgdGIT_DIR=`pwd`/.git
 	fi
@@ -749,7 +757,7 @@ pgdGetServerPortNumber()
 	local port
 
 	# Extract and return port number, iff server is running
-	pgstatus >/dev/null								 \
+	pgstatus >/dev/null								    \
 	&& port=$(head -4 $PGDATA/postmaster.pid | tail -1) \
 	&& echo $port
 }
@@ -773,7 +781,7 @@ pgdGetServerPortNumber()
 #   all the relevant parameters even if CWD is not under that directory. This
 #   is helpful for extension development.
 #
-# pgdResetDirecctoryStack
+# pgdResetDirectoryStack
 #   Reset environment to the initial state, as if we have never entered a
 #   Postgres source directory.
 #
