@@ -1,0 +1,11 @@
+TODO
+====
+
+1. Improve and test the instructions.
+2. While in pgconfigure and pgbuild, lock the Git directory
+
+    Do so, so that the branch-changes and other Git operations are prohibited
+    for that duration. Populate the .git/index.lock file with PID and other
+    info of our process. Honor the case where .git is a file and not a direcory.
+
+

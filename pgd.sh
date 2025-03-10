@@ -1,9 +1,7 @@
 #!/bin/bash
 
-# TODO: While in pgconfigure and pgbuild, lock the Git directory so that the
-# branch-changes and other Git operations are prohibited for that duration.
-# Populate the .git/index.lock file with PID and other info of our process.
-# Honor the case where .git is a file and not a direcory.
+# This is a work-in-progress version-2. If you're looking for the previous,
+# stable version, use the `v1` branch.
 
 # This file is typically supposed to be invoked using bash builtin 'source',
 
