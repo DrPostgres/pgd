@@ -463,6 +463,16 @@ pgstop()
 	pgstatus && $pgdPREFIX/bin/pg_ctl -D $PGDATA stop "$@"
 }
 
+pgrestart()
+{
+	pgdDetectBranchChange || return $?
+
+    echo ... stopping Postgres server ...
+    pgstop;
+    echo ... starting Postgres server ...
+    pgstart
+}
+
 pgconfigure()
 {
 	pgdDetectBranchChange || return $?
